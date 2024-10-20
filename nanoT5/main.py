@@ -19,7 +19,20 @@ from .utils import (
     train,
 )
 
+import cProfile
+import pstats
 
+def profile_function(func):
+    def wrapper(*args, **kwargs):
+        profiler = cProfile.Profile()
+        try:
+            return profiler.runcall(func, *args, **kwargs)
+        finally:
+            stats = pstats.Stats(profiler)
+            stats.sort_stats('cumulative').print_stats(20)
+    return wrapper
+
+# @profile_function
 @hydra.main(config_path="configs", config_name="default", version_base="1.1")
 def main(args):
     accelerator = Accelerator(
@@ -35,6 +48,9 @@ def main(args):
     lr_scheduler = get_lr_scheduler(optimizer, args, logger)
     train_dataloader, test_dataloader = get_dataloaders(tokenizer, config, args)
 
+    # Resize token embeddings if necessary
+    model.resize_token_embeddings(len(tokenizer))
+
     logger.log_args(args)
     model_summary(model, max_depth=3)
     model.config.save_pretrained(".")
@@ -49,8 +65,13 @@ def main(args):
         model, optimizer, lr_scheduler, train_dataloader, test_dataloader
     )
 
+    if args.model.liger:
+        from liger_kernel.transformers import LigerFusedLinearCrossEntropyLoss
+
     if args.model.compile:
         model = torch.compile(model)
+
+    
 
     with open_dict(args):
         args.current_train_step = 1

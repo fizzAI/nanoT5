@@ -4,6 +4,8 @@ import evaluate
 import torch
 from datasets.iterable_dataset import IterableDataset
 
+from .ul3_collator import multi_forward
+
 from .logging_utils import Averager
 
 
@@ -109,10 +111,34 @@ def eval(model, dataloader, logger, args, tokenizer):
     averager = Averager()
 
     for batch_id, batch in enumerate(dataloader, start=1):
-        if batch_id == args.eval.corrected_steps * args.optim.grad_acc:
+        # if batch_id == args.eval.corrected_steps * args.optim.grad_acc:
+        if batch_id >= 128:
             break
 
-        _, stats = forward(model, batch, calc_acc=True)
+        if args.data.multi_task:
+            # Extract MLM and NTP inputs and labels
+            input_ids_mlm = batch.pop("input_ids_mlm", None)
+            attention_mask_mlm = batch.pop("attention_mask_mlm", None)
+            labels_mlm = batch.pop("labels_mlm", None)
+
+            input_ids_ntp = batch.pop("input_ids_ntp", None)
+            attention_mask_ntp = batch.pop("attention_mask_ntp", None)
+            labels_ntp = batch.pop("labels_ntp", None)
+
+            # Forward pass
+            _, stats = multi_forward(model,
+                input_ids_mlm=input_ids_mlm,
+                attention_mask_mlm=attention_mask_mlm,
+                labels_mlm=labels_mlm,
+                input_ids_ntp=input_ids_ntp,
+                attention_mask_ntp=attention_mask_ntp,
+                labels_ntp=labels_ntp,
+                calc_acc=True
+            )
+        
+        else:
+            _, stats = forward(model, batch, calc_acc=True)
+
         averager.update(stats)
 
     averager.update({"time": time.time() - args.last_log})
@@ -197,8 +223,29 @@ def train(
         for batch_id, batch in enumerate(train_dataloader, start=1):
             if args.current_train_step > args.optim.total_steps:
                 break
+            if args.data.multi_task:
+                # Extract MLM and NTP inputs and labels
+                input_ids_mlm = batch.pop("input_ids_mlm", None)
+                attention_mask_mlm = batch.pop("attention_mask_mlm", None)
+                labels_mlm = batch.pop("labels_mlm", None)
 
-            loss, stats = forward(model, batch)
+                input_ids_ntp = batch.pop("input_ids_ntp", None)
+                attention_mask_ntp = batch.pop("attention_mask_ntp", None)
+                labels_ntp = batch.pop("labels_ntp", None)
+
+                # Forward pass
+                loss, stats = multi_forward(model,
+                    input_ids_mlm=input_ids_mlm,
+                    attention_mask_mlm=attention_mask_mlm,
+                    labels_mlm=labels_mlm,
+                    input_ids_ntp=input_ids_ntp,
+                    attention_mask_ntp=attention_mask_ntp,
+                    labels_ntp=labels_ntp,
+     
+                )
+            
+            else:
+                loss, stats = forward(model, batch)
             accelerator.backward(loss / args.optim.grad_acc)
             train_averager.update(stats)
 

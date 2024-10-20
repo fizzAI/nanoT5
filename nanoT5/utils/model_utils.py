@@ -20,6 +20,8 @@ from .copied_utils import (
     compute_input_and_target_lengths,
     tokenize_function,
 )
+
+from .ul3_collator import DataCollatorForT5UL3
 from .t5_model import MyT5
 
 
@@ -84,6 +86,7 @@ def get_tokenizer(args):
 
     # If tokenizer config exists and has a name, use it; otherwise, use the model name
     tokenizer_name = getattr(tokenizer_config, "name", None) or args.model.name
+    print(f"Using tokenizer: {tokenizer_name}")
 
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
     tokenizer.model_max_length = int(1e9)
@@ -99,6 +102,10 @@ def get_tokenizer(args):
     assert all(
         token in _vocab for token in t5_mask_tokens
     ), "T5 special tokens are not in tokenizer"
+
+    if args.data.multi_task:
+        special_tokens_dict = {'additional_special_tokens': ['[R]', '[S]', '[X]', '[NTP]']}
+        tokenizer.add_special_tokens(special_tokens_dict)
 
     return tokenizer
 
@@ -174,14 +181,48 @@ def process_dataset(dataset_splits, args, tokenizer):
 
 def get_data_collator(tokenizer, config, args):
     if args.mode == "pt":
-        data_collator = DataCollatorForT5MLM(
-            tokenizer=tokenizer,
-            noise_density=args.data.mlm_probability,
-            mean_noise_span_length=args.data.mean_noise_span_length,
-            input_length=args.data.input_length,
-            target_length=args.data.target_length,
-            pad_token_id=config.pad_token_id,
-        )
+        if args.data.multi_task:
+            # Define max_token_length based on your tokenizer or model's configuration
+            max_token_length = 100  # Example value; adjust as needed
+
+            denoiser_list = [
+                {"mu": 3.0, "r": 0.15, "max_spans": max_token_length, "prefix": "[R]"},
+                {"mu": 8.0, "r": 0.15, "max_spans": max_token_length, "prefix": "[R]"},
+                {"mu": 4.0, "r": 0.0, "max_spans": 1, "prefix": "[S]"},
+                {"mu": 3.0, "r": 0.5, "max_spans": max_token_length, "prefix": "[X]"},
+                {"mu": 8.0, "r": 0.15, "max_spans": max_token_length, "prefix": "[X]"},
+                {"mu": 64.0, "r": 0.15, "max_spans": max_token_length, "prefix": "[X]"},
+                {"mu": 64.0, "r": 0.5, "max_spans": max_token_length, "prefix": "[X]"},
+                # Adding Next Token Prediction as an additional objective
+                {"mu": 0.0, "r": 0.0, "max_spans": 1, "prefix": "[NTP]"}  # Example configuration
+            ]
+
+            denoiser_proportions = [0.165, 0.165, 0.34, 0.0825, 0.0825, 0.0825, 0.0825, args.data.NTP]  # Last denoiser has 0 proportion initially
+
+            # Normalize proportions to sum to 1.0
+            total = sum(denoiser_proportions)
+            denoiser_proportions = [x / total for x in denoiser_proportions]
+
+            # Initialize the data collator
+            data_collator = DataCollatorForT5UL3(
+                tokenizer=tokenizer,
+                max_length=args.data.max_seq_len,  # Example max length
+                max_labels_length=args.data.max_seq_len,  # Example max labels length
+                batch_size=args.optim.batch_size // args.optim.grad_acc,  # Example batch size
+                denoiser_list=denoiser_list,
+                denoiser_proportions=denoiser_proportions,
+                causal=False,  # Set to True if using a causal model
+                random_chunk=True
+)
+        else:
+            data_collator = DataCollatorForT5MLM(
+                tokenizer=tokenizer,
+                noise_density=args.data.mlm_probability,
+                mean_noise_span_length=args.data.mean_noise_span_length,
+                input_length=args.data.input_length,
+                target_length=args.data.target_length,
+                pad_token_id=config.pad_token_id,
+            )
     elif args.mode == "ft":
         data_collator = DataCollatorForNI(
             tokenizer,
@@ -232,6 +273,7 @@ def get_dataloaders(tokenizer, config, args):
             num_workers=args.data.num_workers,
             pin_memory=True,
             drop_last=False,
+            # prefetch_factor=2
         )
 
     # Add & Check args about data loaders

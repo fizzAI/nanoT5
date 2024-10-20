@@ -13,6 +13,8 @@ from transformers.modeling_utils import ModuleUtilsMixin
 from transformers.models.t5.configuration_t5 import T5Config
 from transformers.models.t5.modeling_t5 import T5DenseGatedActDense, T5LayerNorm
 
+from liger_kernel.transformers import LigerCrossEntropyLoss
+
 
 @dataclass
 class EncoderOutput(ModelOutput):
@@ -489,8 +491,61 @@ class MyT5(nn.Module):
 
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         self.generation_config = None
+        self.loss_fct = LigerCrossEntropyLoss(ignore_index=-100)
 
         self.apply(self._init_weights)
+    
+    def resize_token_embeddings(
+        self, new_num_tokens: Optional[int] = None, pad_to_multiple_of: Optional[int] = None
+    ) -> nn.Embedding:
+        # Get the current embedding size
+        old_num_tokens, old_embedding_dim = self.shared.weight.size()
+
+        # If new_num_tokens is not provided, keep the current size
+        if new_num_tokens is None:
+            return self.shared
+
+        # If pad_to_multiple_of is provided, adjust new_num_tokens
+        if pad_to_multiple_of is not None:
+            new_num_tokens = (
+                (new_num_tokens + pad_to_multiple_of - 1)
+                // pad_to_multiple_of
+                * pad_to_multiple_of
+            )
+
+        # If the size hasn't changed, return early
+        if new_num_tokens == old_num_tokens:
+            return self.shared
+
+        # Create a new embedding layer
+        new_embeddings = nn.Embedding(new_num_tokens, old_embedding_dim)
+
+        # Copy the weights for the existing tokens
+        with torch.no_grad():
+            num_tokens_to_copy = min(old_num_tokens, new_num_tokens)
+            new_embeddings.weight[:num_tokens_to_copy].copy_(self.shared.weight[:num_tokens_to_copy])
+
+        # Update the shared embedding layer
+        self.shared = new_embeddings
+
+        # Update the input embeddings of the encoder and decoder
+        self.encoder.embed_tokens = self.shared
+        self.decoder.embed_tokens = self.shared
+
+        # Resize the lm_head if it's not tied to the input embeddings
+        if not self.config.tie_word_embeddings:
+            old_lm_head_tokens, old_lm_head_dim = self.lm_head.weight.size()
+            if old_lm_head_tokens != new_num_tokens:
+                new_lm_head = nn.Linear(old_lm_head_dim, new_num_tokens, bias=False)
+                with torch.no_grad():
+                    num_tokens_to_copy = min(old_lm_head_tokens, new_num_tokens)
+                    new_lm_head.weight[:num_tokens_to_copy].copy_(self.lm_head.weight[:num_tokens_to_copy])
+                self.lm_head = new_lm_head
+
+        # Update the config
+        self.config.vocab_size = new_num_tokens
+
+        return self.shared
 
     def generate(
         self,
@@ -576,14 +631,14 @@ class MyT5(nn.Module):
 
         loss = None
         if labels is not None:
-            loss_fct = CrossEntropyLoss(ignore_index=-100)
-            loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), labels.view(-1))
+            loss = self.loss_fct(lm_logits.view(-1, lm_logits.size(-1)), labels.view(-1))
 
         return Seq2SeqLMOutput(
             loss=loss,
             logits=lm_logits,
             encoder_outputs=encoder_outputs,
         )
+    
 
     def _init_weights(self, module):
         factor = (
