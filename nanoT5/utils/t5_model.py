@@ -491,7 +491,7 @@ class MyT5(nn.Module):
 
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         self.generation_config = None
-        self.loss_fct = LigerCrossEntropyLoss(ignore_index=-100)
+        self.loss_fct = LigerCrossEntropyLoss(ignore_index=-100, reduction="sum")
 
         self.apply(self._init_weights)
     

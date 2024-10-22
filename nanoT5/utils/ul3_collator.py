@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 
 def multi_forward(
-        model,
+    model,
     input_ids_mlm=None,
     attention_mask_mlm=None,
     labels_mlm=None,
@@ -20,7 +20,7 @@ def multi_forward(
 ):
     loss = 0.0
     outputs = {}
-
+    
     # MLM Objective
     if input_ids_mlm is not None and labels_mlm is not None:
         outputs_mlm = model.forward(
@@ -29,10 +29,9 @@ def multi_forward(
             labels=labels_mlm,
             **kwargs
         )
-        loss += outputs_mlm.loss
-        # outputs['loss_mlm'] = outputs_mlm.loss
-        # outputs['logits_mlm'] = outputs_mlm.logits
-
+        total_valid_tokens_mlm = (labels_mlm != -100).sum()
+        loss += outputs_mlm.loss / total_valid_tokens_mlm
+        
     # NTP Objective
     if input_ids_ntp is not None and labels_ntp is not None:
         outputs_ntp = model.forward(
@@ -41,33 +40,44 @@ def multi_forward(
             labels=labels_ntp,
             **kwargs
         )
-        loss += outputs_ntp.loss
-        # outputs['loss_ntp'] = outputs_ntp.loss
-        # outputs['logits_ntp'] = outputs_ntp.logits
-
-    # outputs['loss'] = loss
-
+        num_items_ntp = (labels_ntp != -100).sum()
+        loss += outputs_ntp.loss / num_items_ntp
+        
     stats = {}
     stats["loss"] = loss.detach().float().item()
-    stats['loss_ntp'] = outputs_ntp.loss.detach().float().item()
-    stats['loss_mlm'] = outputs_mlm.loss.detach().float().item()
-
-
+    
+    if input_ids_ntp is not None and labels_ntp is not None:
+        stats['loss_ntp'] = outputs_ntp.loss.detach().float().item() / num_items_ntp.detach().float().item()
+    
+    if input_ids_mlm is not None and labels_mlm is not None:
+        stats['loss_mlm'] = outputs_mlm.loss.detach().float().item() / total_valid_tokens_mlm.detach().float().item()
+    
     if calc_acc:
+        total_correct = 0
+        total_valid = 0
+        
         if input_ids_mlm is not None and labels_mlm is not None:
-            correct_mlm = (outputs_mlm.logits.argmax(-1) == labels_mlm).sum().item()
-            accuracy_mlm = correct_mlm / labels_mlm.numel()
+            valid_mask_mlm = labels_mlm != -100
+            correct_mlm = ((outputs_mlm.logits.argmax(-1) == labels_mlm) & valid_mask_mlm).sum().item()
+            total_valid_mlm = valid_mask_mlm.sum().item()
+            accuracy_mlm = correct_mlm / total_valid_mlm
             stats["accuracy_mlm"] = accuracy_mlm
-
+            total_correct += correct_mlm
+            total_valid += total_valid_mlm
+            
         if input_ids_ntp is not None and labels_ntp is not None:
-            correct_ntp = (outputs_ntp.logits.argmax(-1) == labels_ntp).sum().item()
-            accuracy_ntp = correct_ntp / labels_ntp.numel()
+            valid_mask_ntp = labels_ntp != -100
+            correct_ntp = ((outputs_ntp.logits.argmax(-1) == labels_ntp) & valid_mask_ntp).sum().item()
+            total_valid_ntp = valid_mask_ntp.sum().item()
+            accuracy_ntp = correct_ntp / total_valid_ntp
             stats["accuracy_ntp"] = accuracy_ntp
-
-        stats["accuracy"] = (correct_mlm + correct_ntp) / (labels_mlm.numel() + labels_ntp.numel())
-
+            total_correct += correct_ntp
+            total_valid += total_valid_ntp
+            
+        if total_valid > 0:
+            stats["accuracy"] = total_correct / total_valid
+    
     return loss, stats
-
 
 from typing import Dict, List, Optional, Union
 import numpy as np

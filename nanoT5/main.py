@@ -87,6 +87,7 @@ def main(args):
         with torch.no_grad():
             predict(model, test_dataloader, logger, args, tokenizer)
     else:
+
         train(
             model,
             train_dataloader,
