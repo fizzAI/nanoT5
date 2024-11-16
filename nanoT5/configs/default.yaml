@@ -23,7 +23,7 @@ model:
     compile: true # Pytorch 2.0
 
 data:
-    input_length: 1024
+    input_length: 512
     mlm_probability: 0.15
     mean_noise_span_length: 3.0
     num_workers: 8
