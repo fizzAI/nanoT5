@@ -29,7 +29,7 @@ data:
     num_workers: 8
 
 optim:
-    name: palm_foreach_sf_adamw # PaLMForeachSFAdamW
+    name: precond_schedule_palm_foreach_soap # PrecondSchedulePaLMForeachSOAP
     base_lr: 1e-3
     batch_size: 128
     total_steps: 65536
