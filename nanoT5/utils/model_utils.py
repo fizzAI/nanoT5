@@ -377,8 +377,9 @@ def get_lr_scheduler(optimizer, args, logger):
         from transformers import get_scheduler
 
         lr_scheduler = get_scheduler(
-            name=args.optim.lr_scheduler,
+            name="constant_with_warmup",
             optimizer=optimizer,
+            num_warmup_steps=args.optim.warmup_steps
         )
     else:
         raise NotImplementedError
