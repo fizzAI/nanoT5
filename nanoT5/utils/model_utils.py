@@ -105,18 +105,18 @@ def get_tokenizer(args):
 
 def load_dataset_splits(args):
     if args.mode == "pt":
-        ds_fw = datasets.load_dataset(
-            "HuggingFaceTB/smollm-corpus", "fineweb-edu-dedup", streaming=True
+        ds_cc = datasets.load_dataset(
+            "PleIAs/common_corpus", streaming=True
         ).shuffle(seed=args.seed)
         ds_c4 = datasets.load_dataset(
             "allenai/c4", "en", streaming=True, trust_remote_code=True
         ).shuffle(seed=args.seed)
 
-        ds_fw = ds_fw.remove_columns(["id", "metadata"])
+        ds_cc = ds_cc.remove_columns(["identifier", "collection", "license"])
         ds_c4 = ds_c4.remove_columns(["timestamp", "url"])
 
         dataset_splits = {
-            "train": ds_fw["train"],
+            "train": ds_cc["train"],
             "test": ds_c4["validation"],
         }
 
