@@ -295,6 +295,13 @@ def get_optimizer(model, args):
             lr=args.optim.base_lr,
             relative_step=False,
         )
+    elif args.optim.name == "psgd_kron":
+        from heavyball import ForeachPSGDKron
+
+        optimizer = ForeachPSGDKron(
+            optimizer_grouped_parameters,
+            lr=args.optim.base_lr,
+        )
     else:
         raise NotImplementedError
 
