@@ -302,7 +302,7 @@ def get_optimizer(model, args):
             optimizer_grouped_parameters,
             lr=args.optim.base_lr,
         )
-    elif args.optim.name == "palm_foreach_sf_adamw"
+    elif args.optim.name == "palm_foreach_sf_adamw":
         from heavyball import PaLMForeachSFAdamW
 
         optimizer = PaLMForeachSFAdamW(
