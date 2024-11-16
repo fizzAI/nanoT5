@@ -309,6 +309,13 @@ def get_optimizer(model, args):
             optimizer_grouped_parameters,
             lr=args.optim.base_lr
         )
+    elif args.optim.name == "precond_schedule_palm_foreach_soap":
+        from heavyball import PrecondSchedulePaLMForeachSOAP
+
+        optmizer = PrecondSchedulePaLMForeachSOAP(
+            optimizer_grouped_parameters,
+            lr=args.optim.base_lr
+        )
     else:
         raise NotImplementedError
 
