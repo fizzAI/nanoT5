@@ -12,7 +12,7 @@ predict_only: false
 seed: 2137
 
 model:
-    klass: hf_t5
+    klass: local_t5
     name: 'google/t5-v1_1-base'
     overwrite: # overwrite config with these values
         dropout_rate: 0.0
