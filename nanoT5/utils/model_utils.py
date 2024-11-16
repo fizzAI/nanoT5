@@ -107,7 +107,7 @@ def load_dataset_splits(args):
     if args.mode == "pt":
         ds_cc = datasets.load_dataset(
             "PleIAs/common_corpus", streaming=True
-        ).shuffle(seed=args.seed)
+        ).shuffle(seed=args.seed).filter(lambda x: x["collection"] != "Github OpenSource")
         ds_c4 = datasets.load_dataset(
             "allenai/c4", "en", streaming=True, trust_remote_code=True
         ).shuffle(seed=args.seed)
