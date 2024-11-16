@@ -30,12 +30,12 @@ data:
 
 optim:
     name: palm_foreach_sf_adamw # PaLMForeachSFAdamW
-    base_lr: 2e-3
+    base_lr: 1e-2
     batch_size: 128
     total_steps: 65536
     epochs: -1 # If it's > 0 it overwrites total_steps
     warmup_steps: 10000
-    lr_scheduler: cosine
+    lr_scheduler: constant
     weight_decay: 0.0
     grad_clip: 1.0
     grad_acc: 4
