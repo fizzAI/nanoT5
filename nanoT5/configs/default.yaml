@@ -30,7 +30,7 @@ data:
 
 optim:
     name: palm_foreach_sf_adamw # PaLMForeachSFAdamW
-    base_lr: 1e-2
+    base_lr: 1e-3
     batch_size: 128
     total_steps: 65536
     epochs: -1 # If it's > 0 it overwrites total_steps
@@ -42,7 +42,7 @@ optim:
     final_cosine: 1e-5
 
 eval:
-    every_steps: 100000 # Eval once in the end
+    every_steps: 1000 # Eval once in the end
     steps: 500
 
 checkpoint:
