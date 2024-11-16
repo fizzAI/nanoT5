@@ -312,7 +312,7 @@ def get_optimizer(model, args):
     elif args.optim.name == "precond_schedule_palm_foreach_soap":
         from heavyball import PrecondSchedulePaLMForeachSOAP
 
-        optmizer = PrecondSchedulePaLMForeachSOAP(
+        optimizer = PrecondSchedulePaLMForeachSOAP(
             optimizer_grouped_parameters,
             lr=args.optim.base_lr
         )
