@@ -13,7 +13,7 @@ seed: 2137
 
 model:
     klass: hf_t5
-    name: 'google/t5-v1_1-base'
+    name: 'Fizzarolli/t5-v1_1-base-improved'
     overwrite: # overwrite config with these values
         dropout_rate: 0.0
     add_config: # add these values to the config
@@ -47,6 +47,9 @@ eval:
 
 checkpoint:
     every_steps: 5000 # Save checkpoint once in the end
+    hub:
+        repo: "allura-org/ccT5-base"
+        private: true
 
 logging:
     every_steps: 5

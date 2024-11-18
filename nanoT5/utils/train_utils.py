@@ -3,6 +3,7 @@ import time
 import evaluate
 import torch
 from datasets.iterable_dataset import IterableDataset
+from huggingface_hub import HfApi
 
 from .logging_utils import Averager
 
@@ -14,7 +15,15 @@ def maybe_save_checkpoint(accelerator, args):
     ):
         output_dir = f"checkpoint-{args.mode}-{args.current_train_step}"
         accelerator.save_state(output_dir=output_dir)
-
+        if args.checkpoint.hub:
+            api = HfApi()
+            api.upload_folder(
+                folder_path=output_dir,
+                repo_id=args.checkpoint.hub.repo,
+                repo_type="model",
+                revision=f"step-{args.current_train_step}",
+                private=args.checkpoint.hub.private,
+            )
 
 def maybe_eval_predict(model, dataloader, logger, args, tokenizer):
     if (
