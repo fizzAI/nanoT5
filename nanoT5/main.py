@@ -2,7 +2,6 @@ import time
 
 import hydra
 import torch
-from accelerate import Accelerator
 from omegaconf import open_dict
 
 from .utils import (
@@ -22,11 +21,7 @@ from .utils import (
 
 @hydra.main(config_path="configs", config_name="default", version_base="1.1")
 def main(args):
-    accelerator = Accelerator(
-        cpu=args.device == "cpu",
-        mixed_precision=args.precision,
-    )
-    logger = setup_basics(accelerator, args)
+    logger = setup_basics(args)
     tokenizer = get_tokenizer(args)
 
     config = get_config(args, tokenizer)
@@ -38,16 +33,6 @@ def main(args):
     logger.log_args(args)
     model_summary(model, max_depth=3)
     model.config.save_pretrained(".")
-
-    (
-        model,
-        optimizer,
-        lr_scheduler,
-        train_dataloader,
-        test_dataloader,
-    ) = accelerator.prepare(
-        model, optimizer, lr_scheduler, train_dataloader, test_dataloader
-    )
 
     if args.model.compile:
         model = torch.compile(model)
@@ -70,7 +55,6 @@ def main(args):
             model,
             train_dataloader,
             test_dataloader,
-            accelerator,
             lr_scheduler,
             optimizer,
             logger,

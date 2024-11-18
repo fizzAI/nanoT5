@@ -32,7 +32,7 @@ class Averager:
 
 
 class Logger:
-    def __init__(self, args, accelerator):
+    def __init__(self, args):
         self.logger = get_logger("Main")
         # Make one log on every process with the configuration for debugging.
         logging.basicConfig(
@@ -40,14 +40,9 @@ class Logger:
             datefmt="%m/%d/%Y %H:%M:%S",
             level=logging.INFO,
         )
-        self.logger.info(accelerator.state, main_process_only=False)
         self.logger.info(f"Working directory is {os.getcwd()}")
-        if accelerator.is_local_main_process:
-            datasets.utils.logging.set_verbosity_warning()
-            transformers.utils.logging.set_verbosity_info()
-        else:
-            datasets.utils.logging.set_verbosity_error()
-            transformers.utils.logging.set_verbosity_error()
+        datasets.utils.logging.set_verbosity_error()
+        transformers.utils.logging.set_verbosity_error()
         self.setup_wandb(args)
 
     def setup_wandb(self, args):

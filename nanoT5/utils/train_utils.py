@@ -8,22 +8,16 @@ from huggingface_hub import HfApi
 from .logging_utils import Averager
 
 
-def maybe_save_checkpoint(accelerator, args):
+def maybe_save_checkpoint(model, args):
     if (
         args.current_train_step > args.optim.total_steps
         or args.current_train_step % args.checkpoint.every_steps == 0
     ):
         output_dir = f"checkpoint-{args.mode}-{args.current_train_step}"
-        accelerator.save_state(output_dir=output_dir)
+        model.save_pretrained(output_dir)
         if args.checkpoint.hub:
-            api = HfApi()
-            api.upload_folder(
-                folder_path=output_dir,
-                repo_id=args.checkpoint.hub.repo,
-                repo_type="model",
-                revision=f"step-{args.current_train_step}",
-                private=args.checkpoint.hub.private,
-            )
+            model.push_to_hub(args.checkpoint.hub.repo, private=args.checkpoint.hub.private)
+
 
 def maybe_eval_predict(model, dataloader, logger, args, tokenizer):
     if (
@@ -59,9 +53,9 @@ def maybe_logging(averager, args, model, optimizer, logger):
         args.last_log = time.time()
 
 
-def maybe_grad_clip_and_grad_calc(accelerator, model, args):
+def maybe_grad_clip_and_grad_calc(model, args):
     if args.optim.grad_clip > 0:
-        grad_l2 = accelerator.clip_grad_norm_(
+        grad_l2 = torch.nn.utils.clip_grad_norm_(
             parameters=model.parameters(),
             max_norm=args.optim.grad_clip,
             norm_type=2,
@@ -185,7 +179,6 @@ def train(
     model,
     train_dataloader,
     test_dataloader,
-    accelerator,
     lr_scheduler,
     optimizer,
     logger,
@@ -208,11 +201,11 @@ def train(
                 break
 
             loss, stats = forward(model, batch)
-            accelerator.backward(loss / args.optim.grad_acc)
+            loss.backward()
             train_averager.update(stats)
 
             if batch_id % args.optim.grad_acc == 0:
-                stats = maybe_grad_clip_and_grad_calc(accelerator, model, args)
+                stats = maybe_grad_clip_and_grad_calc(model, args)
                 train_averager.update(stats)
 
                 optimizer.step()
@@ -221,11 +214,11 @@ def train(
 
                 maybe_logging(train_averager, args, model, optimizer, logger)
                 maybe_eval_predict(model, test_dataloader, logger, args, tokenizer)
-                maybe_save_checkpoint(accelerator, args)
+                maybe_save_checkpoint(model, args)
 
                 args.current_train_step += 1
 
         args.current_epoch += 1
 
     maybe_eval_predict(model, test_dataloader, logger, args, tokenizer)
-    maybe_save_checkpoint(accelerator, args)
+    maybe_save_checkpoint(model, args)

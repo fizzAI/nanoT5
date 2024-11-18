@@ -55,7 +55,7 @@ def update_paths(args):
         args.data.task_dir = to_absolute_path(args.data.task_dir)
 
 
-def setup_basics(accelerator, args):
+def setup_basics(args):
     check_args_and_env(args)
     update_args_with_env_info(args)
     update_paths(args)
@@ -64,6 +64,6 @@ def setup_basics(accelerator, args):
     if args.seed is not None:
         set_seed(args.seed)
 
-    logger = Logger(args=args, accelerator=accelerator)
+    logger = Logger(args=args)
 
     return logger
