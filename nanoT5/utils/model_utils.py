@@ -229,7 +229,6 @@ def get_dataloaders(tokenizer, config, args):
             shuffle=shuffle,
             collate_fn=data_collator,
             batch_size=batch_size,
-            pin_memory=True,
             drop_last=False,
         )
 

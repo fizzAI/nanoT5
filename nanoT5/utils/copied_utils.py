@@ -82,7 +82,7 @@ class DataCollatorForT5MLM:
                 f" {self.target_length}."
             )
 
-        batch = {k: torch.from_numpy(v).to(torch.device("cuda")) for k, v in batch.items()}
+        batch = {k: torch.from_numpy(v) for k, v in batch.items()}
         return batch
 
     def create_sentinel_ids(self, mask_indices):
