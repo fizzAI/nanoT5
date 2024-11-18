@@ -22,6 +22,7 @@ from .utils import (
 @hydra.main(config_path="configs", config_name="default", version_base="1.1")
 def main(args):
     torch.set_default_device("cuda")
+    torch.multiprocessing.set_start_method("spawn")
 
     logger = setup_basics(args)
     tokenizer = get_tokenizer(args)
