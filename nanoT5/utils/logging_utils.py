@@ -5,7 +5,6 @@ from collections import defaultdict
 import datasets
 import transformers
 import wandb
-from accelerate.logging import get_logger
 from omegaconf import OmegaConf
 
 
@@ -33,7 +32,7 @@ class Averager:
 
 class Logger:
     def __init__(self, args):
-        self.logger = get_logger("Main")
+        self.logger = logging.getLogger(__name__)
         # Make one log on every process with the configuration for debugging.
         logging.basicConfig(
             format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",

@@ -1,7 +1,6 @@
 import os
 
 import torch
-from accelerate.utils import set_seed
 from hydra.utils import to_absolute_path
 from omegaconf import open_dict
 
@@ -60,9 +59,6 @@ def setup_basics(args):
     update_args_with_env_info(args)
     update_paths(args)
     opti_flags(args)
-
-    if args.seed is not None:
-        set_seed(args.seed)
 
     logger = Logger(args=args)
 
